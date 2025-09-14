@@ -82,3 +82,7 @@ target/
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Local files - do not push to repository
+istruzioni.txt
+CLAUDE.md
