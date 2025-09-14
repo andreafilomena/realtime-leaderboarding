@@ -1,0 +1,33 @@
+# Dipendenze Python per gli script di performance testing
+# Installa con: pip install -r requirements.txt
+
+# psycopg2-binary: Driver PostgreSQL per Python
+# Questo è il pacchetto che permette a Python di "parlare" con PostgreSQL
+# La versione binary è più facile da installare (non richiede compilazione)
+psycopg2-binary==2.9.7
+
+# numpy: Libreria per calcoli numerici e statistici
+# La useremo per calcolare medie, deviazioni standard, percentili, etc.
+numpy==1.24.3
+
+# matplotlib: Per creare grafici dei risultati (opzionale ma utile)
+# Ci permette di visualizzare l'andamento delle performance nel tempo
+matplotlib==3.7.2
+
+# tabulate: Per formattare tabelle nei risultati
+# Rende più leggibili i report di performance nel terminale
+tabulate==0.9.0
+
+# tqdm: Barre di progresso per operazioni lunghe
+# Molto utile quando generiamo milioni di record - mostra quanto manca
+tqdm==4.65.0
+
+# python-dotenv: Per gestire file di configurazione .env (opzionale)
+# Permette di tenere le configurazioni separate dal codice
+python-dotenv==1.0.0
+
+# Note per l'installazione:
+# Su alcuni sistemi potrebbero servire dipendenze aggiuntive per psycopg2:
+# - Ubuntu/Debian: sudo apt-get install python3-dev libpq-dev
+# - MacOS: brew install postgresql
+# - Windows: Di solito psycopg2-binary funziona senza problemi aggiuntivi

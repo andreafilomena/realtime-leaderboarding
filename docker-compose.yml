@@ -1,0 +1,82 @@
+# Docker Compose per PostgreSQL Performance Testing
+# Questo file configura l'ambiente completo per testare le performance della leaderboard
+
+version: '3.8'
+
+services:
+  # Database PostgreSQL con configurazioni ottimizzate per i test
+  postgres:
+    image: postgres:15
+    container_name: leaderboard_db
+    environment:
+      # Variabili di ambiente per la configurazione del database
+      # Questi valori saranno utilizzati negli script Python
+      POSTGRES_DB: leaderboard_test
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass123
+    ports:
+      # Espone PostgreSQL sulla porta standard 5432
+      - "5432:5432"
+    volumes:
+      # Monta la directory locale database/ per inizializzare il DB
+      - ./database:/docker-entrypoint-initdb.d
+      # Volume persistente per non perdere i dati tra riavvii
+      - postgres_data:/var/lib/postgresql/data
+    command:
+      # Parametri di configurazione PostgreSQL ottimizzati per i test di performance
+      - "postgres"
+      # Carica pg_stat_statements per monitorare le query (FONDAMENTALE per i test)
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      # Aumenta la memoria condivisa per migliorare le performance
+      - "-c"
+      - "shared_buffers=256MB"
+      # Ottimizza la memoria di lavoro per le query complesse
+      - "-c"
+      - "work_mem=16MB"
+      # Riduce il checkpoint interval per scritture più frequenti ma meno bloccanti
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      # Abilita statistiche dettagliate sulle query
+      - "-c"
+      - "track_activity_query_size=2048"
+    healthcheck:
+      # Verifica che PostgreSQL sia pronto ad accettare connessioni
+      test: ["CMD-SHELL", "pg_isready -U testuser -d leaderboard_test"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Container Python per eseguire gli script di test
+  # (Opzionale - puoi anche eseguire gli script direttamente sul tuo sistema)
+  python_tests:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM python:3.11-slim
+        WORKDIR /app
+        COPY scripts/requirements.txt .
+        RUN pip install -r requirements.txt
+        COPY scripts/ ./scripts/
+        COPY results/ ./results/
+        CMD ["sleep", "infinity"]
+    container_name: leaderboard_tests
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      # Monta le directory locali per accesso ai script e risultati
+      - ./scripts:/app/scripts
+      - ./results:/app/results
+    environment:
+      # Variabili per connessione al database (stessi valori del container postgres)
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: leaderboard_test
+      DB_USER: testuser
+      DB_PASSWORD: testpass123
+
+# Volume per la persistenza dei dati
+volumes:
+  postgres_data:
+    driver: local
