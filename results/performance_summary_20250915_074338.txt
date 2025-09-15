@@ -1,0 +1,31 @@
+📊 RIASSUNTO RISULTATI PERFORMANCE TEST
+================================================================================
+
+🗄️  DATABASE:
+   Utenti totali: 10,000
+   Record leaderboard: N/A
+   Punteggio medio: 999.4058000000000000
+
+🎯 PERFORMANCE SUMMARY:
++-------------------------------+--------------+----------------+------------+-----------+------------+
+| Operazione                    |   Media (ms) |   Mediana (ms) |   P95 (ms) |   Ops/sec |   Campioni |
++===============================+==============+================+============+===========+============+
+| UPDATE Score                  |         1.39 |           1.11 |       2.49 |     718.5 |         10 |
++-------------------------------+--------------+----------------+------------+-----------+------------+
+| SELECT TOP 10                 |         0.43 |           0.33 |       0.79 |    2342.1 |         10 |
++-------------------------------+--------------+----------------+------------+-----------+------------+
+| Calcolo Posizione Utente      |         2.01 |           2.13 |       2.88 |     497.8 |         10 |
++-------------------------------+--------------+----------------+------------+-----------+------------+
+| Posizione con WINDOW Function |         5.55 |           5.53 |       6.03 |     180.3 |         10 |
++-------------------------------+--------------+----------------+------------+-----------+------------+
+
+🔍 ANALISI PERFORMANCE:
+   👍 UPDATE: Performance accettabili (<10ms)
+   ✅ TOP 10: Ottime performance (<5ms)
+
+🎯 POSIZIONE UTENTE (query più critica):
+   Metodo COUNT: 2.01ms
+   Metodo WINDOW: 5.55ms
+
+📅 Test eseguito: 2025-09-15 07:43:38
+💡 Analizza i risultati per ottimizzare il database o considerare architetture alternative

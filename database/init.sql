@@ -38,8 +38,9 @@ CREATE INDEX idx_leaderboard_score_desc ON leaderboard (score DESC);
 
 -- Indice composto per query che filtrano per utenti attivi con punteggio
 -- Utile se vogliamo escludere utenti non attivi dalla leaderboard
-CREATE INDEX idx_leaderboard_active_score ON leaderboard (user_id, score DESC)
-WHERE EXISTS (SELECT 1 FROM users WHERE users.user_id = leaderboard.user_id AND is_active = TRUE);
+-- Nota: Questo indice include tutti i record, il filtro per utenti attivi
+-- verrà fatto a livello di query JOIN con la tabella users
+CREATE INDEX idx_leaderboard_active_score ON leaderboard (user_id, score DESC);
 
 -- Indice sulla data di ultimo aggiornamento per query temporali
 CREATE INDEX idx_leaderboard_last_updated ON leaderboard (last_updated);

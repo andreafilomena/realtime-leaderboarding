@@ -26,6 +26,7 @@ from datetime import datetime
 from typing import Dict, List, Tuple, Any
 
 import psycopg2
+import psycopg2.extras
 import numpy as np
 from tabulate import tabulate
 from tqdm import tqdm
@@ -208,8 +209,20 @@ class PerformanceTester:
 
         # Otteniamo il range di user_id validi
         cursor.execute("SELECT MIN(user_id), MAX(user_id) FROM leaderboard")
-        min_user_id, max_user_id = cursor.fetchone()
+        result = cursor.fetchone()
+        if result is None or result['min'] is None:
+            raise ValueError("Database vuoto: nessun record nella tabella leaderboard")
+
+        min_user_id, max_user_id = int(result['min']), int(result['max'])
+        # Semplifichiamo: usa sempre il range completo o limitato da user_sample
         max_test_user = min(max_user_id, user_sample)
+
+        # Se user_sample è minore del min_user_id, usa il range completo
+        if max_test_user < min_user_id:
+            max_test_user = max_user_id
+
+        if min_user_id > max_test_user:
+            raise ValueError(f"Range invalido: min_user_id={min_user_id} > max_test_user={max_test_user}")
 
         for i in tqdm(range(iterations), desc="Test UPDATE"):
             # Scegliamo un utente casuale da testare
@@ -319,8 +332,20 @@ class PerformanceTester:
 
         # Otteniamo utenti validi
         cursor.execute("SELECT MIN(user_id), MAX(user_id) FROM leaderboard")
-        min_user_id, max_user_id = cursor.fetchone()
+        result = cursor.fetchone()
+        if result is None or result['min'] is None:
+            raise ValueError("Database vuoto: nessun record nella tabella leaderboard")
+
+        min_user_id, max_user_id = int(result['min']), int(result['max'])
+        # Semplifichiamo: usa sempre il range completo o limitato da user_sample
         max_test_user = min(max_user_id, user_sample)
+
+        # Se user_sample è minore del min_user_id, usa il range completo
+        if max_test_user < min_user_id:
+            max_test_user = max_user_id
+
+        if min_user_id > max_test_user:
+            raise ValueError(f"Range invalido: min_user_id={min_user_id} > max_test_user={max_test_user}")
 
         for i in tqdm(range(iterations), desc="Test posizione utente"):
             # Scegliamo un utente casuale
@@ -383,8 +408,20 @@ class PerformanceTester:
         times = []
 
         cursor.execute("SELECT MIN(user_id), MAX(user_id) FROM leaderboard")
-        min_user_id, max_user_id = cursor.fetchone()
+        result = cursor.fetchone()
+        if result is None or result['min'] is None:
+            raise ValueError("Database vuoto: nessun record nella tabella leaderboard")
+
+        min_user_id, max_user_id = int(result['min']), int(result['max'])
+        # Semplifichiamo: usa sempre il range completo o limitato da user_sample
         max_test_user = min(max_user_id, user_sample)
+
+        # Se user_sample è minore del min_user_id, usa il range completo
+        if max_test_user < min_user_id:
+            max_test_user = max_user_id
+
+        if min_user_id > max_test_user:
+            raise ValueError(f"Range invalido: min_user_id={min_user_id} > max_test_user={max_test_user}")
 
         for i in tqdm(range(iterations), desc="Test WINDOW function"):
             user_id = random.randint(min_user_id, max_test_user)
@@ -601,6 +638,130 @@ class PerformanceTester:
         print(f"\n✅ Suite test completata in {total_time:.2f} secondi")
         return self.results
 
+    def save_text_summary(self, output_dir: str = "/app/results", filename: str = None):
+        """
+        Salva il riassunto testuale dei risultati in un file .txt.
+
+        Args:
+            output_dir: Directory di output
+            filename: Nome del file (se None, genera nome con timestamp)
+        """
+        if not filename:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{output_dir}/performance_summary_{timestamp}.txt"
+
+        try:
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write("📊 RIASSUNTO RISULTATI PERFORMANCE TEST\n")
+                f.write("=" * 80 + "\n\n")
+
+                # Database info
+                f.write("🗄️  DATABASE:\n")
+                if 'database_stats' in self.results:
+                    stats = self.results['database_stats']
+                    total_users = stats.get('total_users', 'N/A')
+                    leaderboard_records = stats.get('leaderboard_records', 'N/A')
+                    avg_score = stats.get('avg_score', 'N/A')
+
+                    # Formatta con virgole solo se è un numero
+                    total_users_str = f"{total_users:,}" if isinstance(total_users, int) else total_users
+                    leaderboard_records_str = f"{leaderboard_records:,}" if isinstance(leaderboard_records, int) else leaderboard_records
+
+                    f.write(f"   Utenti totali: {total_users_str}\n")
+                    f.write(f"   Record leaderboard: {leaderboard_records_str}\n")
+                    f.write(f"   Punteggio medio: {avg_score}\n")
+                f.write("\n")
+
+                # Performance summary table
+                f.write("🎯 PERFORMANCE SUMMARY:\n")
+
+                # Create table data
+                table_data = []
+                tests = self.results.get('tests', {})
+
+                if 'score_update' in tests:
+                    data = tests['score_update']
+                    table_data.append([
+                        "UPDATE Score",
+                        f"{data['mean_ms']:.2f}",
+                        f"{data['median_ms']:.2f}",
+                        f"{data['p95_ms']:.2f}",
+                        f"{data['ops_per_second']:.1f}",
+                        f"{data['sample_size']}"
+                    ])
+
+                if 'top_leaderboard' in tests:
+                    data = tests['top_leaderboard']
+                    table_data.append([
+                        "SELECT TOP 10",
+                        f"{data['mean_ms']:.2f}",
+                        f"{data['median_ms']:.2f}",
+                        f"{data['p95_ms']:.2f}",
+                        f"{data['ops_per_second']:.1f}",
+                        f"{data['sample_size']}"
+                    ])
+
+                if 'user_ranking' in tests:
+                    data = tests['user_ranking']
+                    table_data.append([
+                        "Calcolo Posizione Utente",
+                        f"{data['mean_ms']:.2f}",
+                        f"{data['median_ms']:.2f}",
+                        f"{data['p95_ms']:.2f}",
+                        f"{data['ops_per_second']:.1f}",
+                        f"{data['sample_size']}"
+                    ])
+
+                if 'user_ranking_window' in tests:
+                    data = tests['user_ranking_window']
+                    table_data.append([
+                        "Posizione con WINDOW Function",
+                        f"{data['mean_ms']:.2f}",
+                        f"{data['median_ms']:.2f}",
+                        f"{data['p95_ms']:.2f}",
+                        f"{data['ops_per_second']:.1f}",
+                        f"{data['sample_size']}"
+                    ])
+
+                # Write table using tabulate
+                headers = ["Operazione", "Media (ms)", "Mediana (ms)", "P95 (ms)", "Ops/sec", "Campioni"]
+                table_str = tabulate(table_data, headers=headers, tablefmt="grid")
+                f.write(table_str + "\n\n")
+
+                # Analysis
+                f.write("🔍 ANALISI PERFORMANCE:\n")
+                if 'score_update' in tests:
+                    update_time = tests['score_update']['mean_ms']
+                    if update_time < 10:
+                        f.write("   👍 UPDATE: Performance accettabili (<10ms)\n")
+                    else:
+                        f.write("   ⚠️  UPDATE: Performance da ottimizzare (>10ms)\n")
+
+                if 'top_leaderboard' in tests:
+                    select_time = tests['top_leaderboard']['mean_ms']
+                    if select_time < 5:
+                        f.write("   ✅ TOP 10: Ottime performance (<5ms)\n")
+                    else:
+                        f.write("   ⚠️  TOP 10: Performance da ottimizzare (>5ms)\n")
+
+                f.write("\n🎯 POSIZIONE UTENTE (query più critica):\n")
+                if 'user_ranking' in tests and 'user_ranking_window' in tests:
+                    rank_time = tests['user_ranking']['mean_ms']
+                    window_time = tests['user_ranking_window']['mean_ms']
+                    f.write(f"   Metodo COUNT: {rank_time:.2f}ms\n")
+                    f.write(f"   Metodo WINDOW: {window_time:.2f}ms\n")
+
+                    if window_time < rank_time:
+                        improvement = ((rank_time - window_time) / rank_time) * 100
+                        f.write(f"   💡 Window function è {improvement:.1f}% più veloce del COUNT\n")
+
+                f.write(f"\n📅 Test eseguito: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write("💡 Analizza i risultati per ottimizzare il database o considerare architetture alternative\n")
+
+            print(f"📄 Riassunto testuale salvato in: {filename}")
+        except Exception as e:
+            print(f"❌ Errore salvataggio riassunto: {e}")
+
     def print_results_summary(self):
         """Stampa un riassunto formattato dei risultati."""
         print("\n" + "=" * 80)
@@ -681,7 +842,7 @@ class PerformanceTester:
             improvement = ((rank_time - window_time) / rank_time) * 100
             print(f"   💡 Window function è {improvement:.1f}% più veloce del COUNT")
 
-    def save_results_to_file(self, filename: str = None):
+    def save_results_to_file(self, output_dir: str = "/app/results", filename: str = None):
         """
         Salva i risultati dettagliati in un file JSON.
 
@@ -690,7 +851,7 @@ class PerformanceTester:
         """
         if not filename:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"../results/performance_results_{timestamp}.json"
+            filename = f"{output_dir}/performance_results_{timestamp}.json"
 
         try:
             with open(filename, 'w', encoding='utf-8') as f:
@@ -699,7 +860,7 @@ class PerformanceTester:
         except Exception as e:
             print(f"❌ Errore salvataggio file: {e}")
 
-    def save_results_to_csv(self, filename: str = None):
+    def save_results_to_csv(self, output_dir: str = "/app/results", filename: str = None):
         """
         Salva un riassunto dei risultati in formato CSV per analisi Excel.
 
@@ -708,7 +869,7 @@ class PerformanceTester:
         """
         if not filename:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"../results/performance_summary_{timestamp}.csv"
+            filename = f"{output_dir}/performance_summary_{timestamp}.csv"
 
         try:
             with open(filename, 'w', newline='', encoding='utf-8') as f:
@@ -778,19 +939,20 @@ Esempi di utilizzo:
 
     parser.add_argument(
         '--output-dir',
-        default='../results',
-        help='Directory per salvare i risultati (default: ../results)'
+        default='/app/results',
+        help='Directory per salvare i risultati (default: /app/results)'
     )
 
     args = parser.parse_args()
-
-    # Configurazione database
+    
+    # Configurazione database (usa variabili d'ambiente se disponibili)
+    import os
     db_config = {
-        'host': 'localhost',
-        'database': 'leaderboard_test',
-        'user': 'testuser',
-        'password': 'testpass123',
-        'port': 5432
+        'host': os.getenv('DB_HOST', 'localhost'),
+        'database': os.getenv('DB_NAME', 'leaderboard_test'),
+        'user': os.getenv('DB_USER', 'testuser'),
+        'password': os.getenv('DB_PASSWORD', 'testpass123'),
+        'port': int(os.getenv('DB_PORT', 5432))
     }
 
     print("🎯 PERFORMANCE TESTER LEADERBOARD POSTGRESQL")
@@ -812,8 +974,9 @@ Esempi di utilizzo:
 
         # Salva risultati se richiesto
         if args.save_results:
-            tester.save_results_to_file()
-            tester.save_results_to_csv()
+            tester.save_results_to_file(args.output_dir)
+            tester.save_results_to_csv(args.output_dir)
+            tester.save_text_summary(args.output_dir)
 
     except KeyboardInterrupt:
         print("\n⚠️  Test interrotti dall'utente")

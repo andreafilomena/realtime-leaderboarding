@@ -58,7 +58,7 @@ class DataGenerator:
 
     def generate_usernames(self, count: int) -> List[str]:
         """
-        Genera nomi utente realistici.
+        Genera nomi utente realistici e univoci.
 
         Args:
             count: Numero di username da generare
@@ -72,22 +72,33 @@ class DataGenerator:
         prefixes = ["Player", "Gamer", "Pro", "Master", "Noob", "Elite", "Super", "Mega", "Ultra", "Alpha"]
         suffixes = ["2023", "Gaming", "XD", "Pro", "Best", "King", "Queen", "Star", "Hero", "Legend"]
 
-        usernames = []
-        for i in tqdm(range(count), desc="Generando username"):
-            # Mix di strategie per variety
-            if i % 3 == 0:
-                # Formato: Prefix + numero
-                username = f"{random.choice(prefixes)}{random.randint(1, 99999)}"
-            elif i % 3 == 1:
-                # Formato: Prefix + Suffix + numero
-                username = f"{random.choice(prefixes)}{random.choice(suffixes)}{random.randint(1, 999)}"
-            else:
-                # Formato: Username + numero casuale
-                username = f"User{i+1}_{random.randint(100, 9999)}"
+        usernames = set()  # Usa set per garantire unicità
+        attempts = 0
+        max_attempts = count * 10  # Limite per evitare loop infiniti
 
-            usernames.append(username)
+        with tqdm(total=count, desc="Generando username") as pbar:
+            while len(usernames) < count and attempts < max_attempts:
+                attempts += 1
 
-        return usernames
+                # Mix di strategie per variety
+                if attempts % 3 == 0:
+                    # Formato: Prefix + numero
+                    username = f"{random.choice(prefixes)}{random.randint(1, 99999)}"
+                elif attempts % 3 == 1:
+                    # Formato: Prefix + Suffix + numero
+                    username = f"{random.choice(prefixes)}{random.choice(suffixes)}{random.randint(1, 999)}"
+                else:
+                    # Formato: Username + numero incrementale per garantire unicità
+                    username = f"User{len(usernames)+1}_{random.randint(100, 99999)}"
+
+                if username not in usernames:
+                    usernames.add(username)
+                    pbar.update(1)
+
+        if len(usernames) < count:
+            raise ValueError(f"Impossibile generare {count} username univoci dopo {max_attempts} tentativi")
+
+        return list(usernames)
 
     def generate_scores(self, count: int, distribution: str = "normal") -> List[int]:
         """
@@ -311,13 +322,14 @@ Esempi di utilizzo:
 
     args = parser.parse_args()
 
-    # Configurazione database (dovrebbe corrispondere al docker-compose.yml)
+    # Configurazione database (usa variabili d'ambiente se disponibili)
+    import os
     db_config = {
-        'host': 'localhost',
-        'database': 'leaderboard_test',
-        'user': 'testuser',
-        'password': 'testpass123',
-        'port': 5432
+        'host': os.getenv('DB_HOST', 'localhost'),
+        'database': os.getenv('DB_NAME', 'leaderboard_test'),
+        'user': os.getenv('DB_USER', 'testuser'),
+        'password': os.getenv('DB_PASSWORD', 'testpass123'),
+        'port': int(os.getenv('DB_PORT', 5432))
     }
 
     print("🚀 GENERATORE DATI LEADERBOARD")

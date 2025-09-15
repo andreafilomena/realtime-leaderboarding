@@ -52,14 +52,7 @@ services:
   python_tests:
     build:
       context: .
-      dockerfile_inline: |
-        FROM python:3.11-slim
-        WORKDIR /app
-        COPY scripts/requirements.txt .
-        RUN pip install -r requirements.txt
-        COPY scripts/ ./scripts/
-        COPY results/ ./results/
-        CMD ["sleep", "infinity"]
+      dockerfile: Dockerfile
     container_name: leaderboard_tests
     depends_on:
       postgres:
